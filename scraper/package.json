@@ -1,0 +1,13 @@
+{
+	"name": "oliveyoung-ranking-scraper",
+	"private": true,
+	"type": "module",		"description": "올리브영 카테고리별 판매랭킹 목록/상세 수집기",
+	"scripts": {
+		"collect": "node collect-ranking-list.mjs",
+		"collect:detail": "node collect-goods-detail.mjs",
+		"dashboard": "node server.mjs"
+	},
+	"dependencies": {
+		"playwright": "^1.47.0"
+	}
+}

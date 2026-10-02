@@ -1,0 +1,523 @@
+:root {
+	--bg: #0f1115;
+	--panel: #171a21;
+	--line: #262b35;
+	--txt: #e6e9ef;
+	--dim: #8b94a7;
+	--accent: #7c5cff;
+	--ok: #2ecc71;
+	--err: #ff5f56;
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	padding: 0 20px 60px;
+	background: var(--bg);
+	color: var(--txt);
+	font: 14px/1.5 -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+}
+
+/* ---------- 상단 ---------- */
+
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 20px 0 16px;
+	flex-wrap: wrap;
+}
+
+.topbar h1 { margin: 0; font-size: 19px; letter-spacing: -0.2px; }
+.sub { margin: 4px 0 0; color: var(--dim); font-size: 12.5px; }
+
+.actions { display: flex; gap: 8px; }
+
+/* ---------- 공통 ---------- */
+
+button {
+	background: #232833;
+	color: var(--txt);
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	padding: 8px 14px;
+	font-size: 13px;
+	cursor: pointer;
+}
+button:hover:not(:disabled) { background: #2c3240; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #6a4bf0; }
+button.ghost { background: transparent; }
+
+input, select {
+	background: #12151b;
+	color: var(--txt);
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	padding: 8px 10px;
+	font-size: 13px;
+	min-width: 0;
+}
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+input[type="number"] { width: 120px; }
+
+.panel {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	padding: 14px 16px;
+	margin-bottom: 12px;
+}
+
+/* ---------- 작업 상태 ---------- */
+
+.job-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+
+.badge {
+	font-size: 11.5px;
+	padding: 3px 9px;
+	border-radius: 20px;
+	background: #2a3040;
+	color: var(--dim);
+	font-weight: 600;
+}
+.badge.running { background: #2b3a67; color: #8fb0ff; }
+.badge.done { background: #1c4530; color: var(--ok); }
+.badge.error { background: #4a2020; color: var(--err); }
+.badge.stopped,
+.badge.aborted { background: #4a3413; color: #ffa347; }
+
+.progress { height: 6px; background: #10131a; border-radius: 4px; overflow: hidden; }
+.bar { height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+
+/* 정체 경고 + 중지 버튼 */
+
+button.danger { background: transparent; border-color: var(--err); color: var(--err); }
+button.danger:hover:not(:disabled) { background: rgba(255, 95, 86, 0.12); }
+
+.stalled {
+	color: var(--err);
+	font-size: 12.5px;
+	font-weight: 600;
+	animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink {
+	50% { opacity: 0.35; }
+}
+
+.job-opts { margin-top: 12px; }
+.job-opts summary { cursor: pointer; color: var(--dim); font-size: 12.5px; }
+.job-opts label { display: inline-flex; align-items: center; gap: 6px; margin: 8px 16px 0 0; color: var(--dim); font-size: 12.5px; }
+.job-opts .hint { color: #5c6577; font-size: 11.5px; }
+.job-opts .check input { width: auto; }
+
+.joblog { list-style: none; margin: 12px 0 0; padding: 0; max-height: 130px; overflow: auto; font-size: 12px; color: var(--dim); }
+.joblog li { padding: 2px 0; border-top: 1px solid #1e232c; }
+
+/* ---------- 필터 ---------- */
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filters #fQ { flex: 1; min-width: 220px; }
+.spacer { flex: 1; }
+
+.count { color: var(--dim); font-size: 12.5px; margin: 2px 2px 10px; }
+
+/* ---------- 표 ---------- */
+
+.tablewrap {
+	background: var(--panel);
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	overflow: auto;
+	max-height: 68vh;
+}
+
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+
+th, td {
+	padding: 8px 10px;
+	text-align: left;
+	border-bottom: 1px solid #1e232c;
+	white-space: nowrap;
+}
+
+th {
+	position: sticky;
+	top: 0;
+	background: #1c212a;
+	color: var(--dim);
+	font-weight: 600;
+	z-index: 1;
+}
+
+tbody tr:hover { background: #1b2029; }
+/* 정렬 가능한 헤더 */
+
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover { color: var(--txt); }
+th.sortable.sorted { color: var(--accent); }
+th.sortable .sortarrow { display: inline-block; width: 12px; margin-left: 4px; font-size: 10px; }
+
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 정보고시처럼 길 수 있는 텍스트 셀. 한 줄 말줄임 + 호버 시 원문 툴팁은 title 로 */
+td.mid { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+td.long { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+td.name { white-space: normal; min-width: 320px; }
+td.rank { color: var(--dim); }
+td.img img { width: 34px; height: 44px; object-fit: cover; border-radius: 4px; background: #fff; }
+td.cat { color: var(--dim); }
+
+.tag {
+	display: inline-block;
+	background: #262c38;
+	border-radius: 4px;
+	padding: 1px 6px;
+	margin-right: 4px;
+	font-size: 11px;
+	color: #b9c2d4;
+}
+a { color: #9db4ff; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- 페이저 ---------- */
+
+.pager { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 14px; }
+.pager span { color: var(--dim); font-size: 12.5px; }
+
+/* ---------- 상세 모달 ---------- */
+
+td.detail { text-align: center; }
+
+button.linkbtn {
+	background: none;
+	border: none;
+	padding: 2px 4px;
+	color: #9db4ff;
+	font-size: 12px;
+}
+button.linkbtn:hover { background: none; text-decoration: underline; }
+
+/* 행별 [상세] 수집 버튼 (목록 '수집' 컬럼) */
+td.collect { white-space: nowrap; text-align: center; }
+th.col-detail { width: 60px; }
+th.col-collect { width: 60px; }
+button.collectbtn {
+	padding: 2px 7px;
+	font-size: 11.5px;
+	margin-right: 3px;
+}
+button.collectbtn:last-child { margin-right: 0; }
+button.collectbtn:disabled { opacity: 0.5; cursor: wait; }
+
+/* 찜(담아두기) 버튼: 행 하트 / 모달·툴바 버튼 공통 */
+button.favbtn {
+	background: none;
+	border: none;
+	padding: 2px 6px;
+	font-size: 14px;
+	line-height: 1;
+	color: #8b94a7;
+	cursor: pointer;
+}
+button.favbtn:hover { background: none; color: #ff6b81; transform: scale(1.15); }
+button.favbtn.on { color: #ff5f7a; }
+
+button.ghost.on { border-color: var(--accent); color: var(--accent); }
+.fav-tools { margin-left: 14px; display: inline-flex; gap: 6px; }
+.fav-tools button[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* 모달 헤더의 찜 버튼이 켜졌을 때 */
+.modal-actions button.on {
+	border-color: #ff5f7a;
+	color: #ff5f7a;
+	font-weight: 600;
+}
+
+.detailmodal {
+	width: min(900px, 92vw);
+	max-height: 88vh;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	background: var(--panel);
+	color: var(--txt);
+	overflow: hidden;
+}
+/* 제목이 두 줄이어도 본문이 창 밖으로 나가지 않도록: 머리 = 고정, 본문 = 남은 만큼 스크롤.
+   (닫힌 dialog 는 UA 스타일 display:none 을 유지해야 하므로 [open] 에만 건다) */
+.detailmodal[open] { display: flex; flex-direction: column; }
+.detailmodal::backdrop { background: rgba(0, 0, 0, 0.6); }
+
+.modal-head {
+	flex: none;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 16px 18px;
+	border-bottom: 1px solid var(--line);
+}
+.modal-head h2 { margin: 0; font-size: 15px; }
+.modal-actions { display: flex; align-items: center; gap: 10px; flex: none; }
+/* "원본 페이지 열기" 링크를 옆 버튼들과 같은 모양으로.
+   button.small(padding 3px 9px / 12px) 규격을 그대로 맞춘다 */
+.modal-actions a.btnlike {
+	display: inline-block;
+	background: #232833;
+	color: var(--txt);
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	padding: 3px 9px;
+	font-size: 12px;
+	line-height: normal;
+	margin-left: auto;
+	text-decoration: none;
+	cursor: pointer;
+}
+.modal-actions a.btnlike:hover { background: #2c3240; color: var(--txt); }
+
+.modal-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	padding: 16px 18px 24px;
+	overflow: auto;
+	/* abs positioned 자손의 containing block. 이게 없으면 본문 밖(모달 머리 위로)
+	   뻗어나가는 요소가 머리/닫기 버튼을 덮는다 */
+	position: relative;
+	/* 모달 본문은 패널 배경(--panel)을 그대로 쓴다: 대시보드가 다크 테마라
+	   흰 본문은 톤이 어긋난다. 원문 콘텐츠는 이미지 위주라 다크 배경이 자연스럽다. */
+	border-radius: 0 0 12px 12px;
+}
+/* 올리브영 큐레이션 썸네일의 fill 이미지(인라인 style="position:absolute; inset:0")는
+   원본 페이지에선 relative 부모 안에 갇혀 있었는데, 스타일시트 없이 렌더하면
+   containing block 가 없어 모달 전체를 덮는다. 흐름에 넣어 원래 크기대로 보여준다. */
+.modal-body img[style*="position: absolute"] {
+	position: static !important;
+	inset: auto !important;
+	width: auto !important;
+	height: auto !important;
+}
+.modal-body img { max-width: 100%; height: auto; display: block; margin: 0 auto 8px; background: #f4f4f4; }
+.modal-body a { color: #8fb0ff; }
+
+/* ---------- 상세 모달: 쇼핑몰 레이아웃 ---------- */
+
+/* 상단 요약: 좌 이미지 / 우 정보 */
+.goods-top { display: flex; gap: 20px; padding: 4px 2px 16px; }
+
+.goods-photo {
+	flex: none;
+	width: 280px;
+	height: 280px;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	overflow: hidden;
+	background: #12151b;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.goods-photo img { width: 100%; height: 100%; object-fit: contain; }
+.goods-photo-empty { color: var(--dim); font-size: 12.5px; }
+
+.goods-info { flex: 1; min-width: 0; }
+.goods-brand { margin: 2px 0 4px; color: var(--dim); font-size: 13px; }
+.goods-rank {
+	display: inline-block;
+	margin-left: 8px;
+	padding: 1px 8px;
+	border-radius: 20px;
+	background: #2b3a67;
+	color: #8fb0ff;
+	font-size: 11px;
+	font-weight: 600;
+}
+.goods-name { margin: 0 0 10px; font-size: 17px; line-height: 1.45; word-break: keep-all; }
+
+.goods-price { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.price-normal { color: var(--dim); text-decoration: line-through; font-size: 13px; }
+.price-sale { font-size: 22px; font-weight: 700; color: var(--txt); font-variant-numeric: tabular-nums; }
+.price-rate { color: var(--err); font-weight: 700; font-size: 15px; }
+.goods-flags { margin-bottom: 12px; }
+
+.goods-spec { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.goods-spec > div { display: flex; gap: 10px; font-size: 12.5px; }
+.goods-spec dt { flex: none; width: 64px; color: var(--dim); }
+.goods-spec dd { margin: 0; word-break: break-all; }
+
+/* 하단 섹션 공통 */
+.goods-section { border-top: 1px solid var(--line); padding: 14px 2px 4px; margin-top: 6px; }
+.goods-section h3 { margin: 0 0 10px; font-size: 14px; color: var(--txt); }
+.goods-empty { color: var(--dim); font-size: 12.5px; margin: 0; }
+
+/* ---------- 상세 모달: 정보고시/상세설명 탭 ---------- */
+
+.modal-tabs {
+	display: flex;
+	gap: 4px;
+	margin: 10px 0 0;
+	border-bottom: 1px solid var(--line);
+}
+.mtab {
+	background: none;
+	border: none;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	padding: 9px 14px 8px;
+	margin-bottom: -1px;
+	color: var(--dim);
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+}
+.mtab:hover { color: var(--txt); background: none; }
+.mtab.on {
+	color: var(--txt);
+	border-bottom-color: var(--accent);
+	font-weight: 600;
+}
+.tabpane { padding-top: 14px; }
+
+/* 정보고시 표 */
+.article-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.article-table th,
+.article-table td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; white-space: normal; }
+.article-table th { width: 34%; background: #1c212a; color: var(--dim); font-weight: 600; }
+.article-table td { word-break: break-all; line-height: 1.55; }
+
+/* 상세 설명 원문 (올리브영 DOM 이라 폭 제한 필요) */
+.goods-detailhtml { font-size: 13px; line-height: 1.6; }
+.goods-detailhtml img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+/* 원문 DOM 이 들고 있는 연한 배경(rgb(238,238,238) 등)은 다크 테마에서
+   밝은 사각형 덩어리로 보이므로 인라인 배경을 모두 지운다 */
+.goods-detailhtml [style*="background"] { background: none !important; }
+
+@media (max-width: 720px) {
+	.goods-top { flex-direction: column; }
+	.goods-photo { width: 100%; height: auto; }
+}
+
+/* ---------- 수집 폼(펼침/접힘) ---------- */
+
+.panel[hidden] { display: none; }
+
+button.small { padding: 3px 9px; font-size: 12px; margin-left: auto; }
+
+/* 왼쪽 = 수집 옵션, 오른쪽 = 수집 로그 (가로 공간을 다 쓴다) */
+.job-grid {
+	display: grid;
+	grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+	gap: 18px;
+	margin-top: 14px;
+	align-items: start;
+}
+
+.job-opts { margin-top: 0; min-width: 0; }
+.job-opts summary { cursor: pointer; color: var(--dim); font-size: 12.5px; }
+.job-opts-body { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.job-opts label { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; color: var(--dim); font-size: 12.5px; }
+.job-opts .hint { color: #5c6577; font-size: 11.5px; }
+.job-opts .check input { width: auto; }
+
+.job-btns { display: flex; gap: 8px; margin-top: 14px; }
+.job-btns button { flex: 1; }
+
+.job-logcol { min-width: 0; }
+.col-title { margin: 0 0 6px; font-size: 12.5px; font-weight: 600; color: var(--dim); }
+
+.joblog {
+	list-style: none;
+	margin: 0;
+	padding: 6px 10px;
+	max-height: 260px;
+	overflow: auto;
+	font-size: 12px;
+	color: var(--dim);
+	background: #12151b;
+	border: 1px solid var(--line);
+	border-radius: 8px;
+}
+.joblog li { padding: 2px 0; border-top: 1px solid #1e232c; }
+.joblog li:first-child { border-top: none; }
+
+@media (max-width: 860px) {
+	.job-grid { grid-template-columns: 1fr; }
+}
+
+/* 브랜드가 380개 넘으므로 셀렉트 폭을 고정해 필터 줄이 두 줄로 꺾이지 않게 한다 */
+.filters select { max-width: 190px; }
+
+/* ---------- 브랜드 다중 선택 ---------- */
+
+.multisel { position: relative; }
+
+.multisel .ms-btn {
+	width: 190px;
+	text-align: left;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.multisel .ms-btn.on { border-color: var(--accent); color: var(--accent); }
+
+.multisel .ms-panel {
+	position: absolute;
+	z-index: 20;
+	top: calc(100% + 6px);
+	left: 0;
+	width: 280px;
+	padding: 10px;
+	background: #12151b;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.multisel .ms-panel[hidden] { display: none; }
+
+.ms-tools {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 8px 0;
+}
+.ms-tools .hint { color: #5c6577; font-size: 11.5px; margin-left: auto; }
+
+.ms-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: 260px;
+	overflow: auto;
+	border-top: 1px solid var(--line);
+}
+.ms-list li { border-bottom: 1px solid #1e232c; }
+.ms-list label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 4px;
+	font-size: 12.5px;
+	cursor: pointer;
+}
+.ms-list label:hover { background: #1c212a; }
+.ms-list input { width: auto; padding: 0; }
+.ms-list .ms-empty { padding: 12px 4px; color: var(--dim); font-size: 12.5px; }
+
+/* ---------- 상품명(내부 상세) + 원본 아이콘 ---------- */
+
+td.name a.namelink { color: var(--txt); }
+td.name a.namelink:hover { color: #9db4ff; }
+
+a.extlink {
+	display: inline-block;
+	margin-left: 5px;
+	color: var(--dim);
+	vertical-align: 1px;
+	opacity: 0.7;
+}
+a.extlink:hover { color: var(--accent); opacity: 1; }
