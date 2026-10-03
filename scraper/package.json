@@ -5,7 +5,8 @@
 	"scripts": {
 		"collect": "node collect-ranking-list.mjs",
 		"collect:detail": "node collect-goods-detail.mjs",
-		"dashboard": "node server.mjs"
+		"dashboard": "node server.mjs",
+		"export:partner": "node export-partner-catalog.mjs"
 	},
 	"dependencies": {
 		"playwright": "^1.47.0"

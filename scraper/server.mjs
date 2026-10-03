@@ -13,6 +13,7 @@ import { collectAll, saveItems } from './lib/collector.mjs';
 import { collectDetails } from './lib/detail.mjs';
 import { JOB_JSON, DATA_DIR, FAV_JSON } from './lib/paths.mjs';
 import { loadPayload, flatten, applyQuery, summarize, buildCsv, buildWorkbook, findDetail, stripDetail, COLUMNS } from './lib/data.mjs';
+import { buildPartnerWorkbook } from './lib/partner-sheet.mjs';
 import { PUBLIC_DIR, IMAGE_DIR } from './lib/paths.mjs';
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -563,7 +564,8 @@ const server = http.createServer(async (req, res) => {
 			const base = `oliveyoung_ranking_${stamp()}`;
 			if (format === 'xlsx') {
 				const summary = summarize(payload, all);
-				const buf = buildWorkbook(filtered, summary);
+				// 찜 엑셀은 협력사 사이트가 그대로 가져올 수 있게 상세이미지·정보고시 열을 붙인다.
+				const buf = url.searchParams.get('fav') === '1' ? buildPartnerWorkbook(filtered) : buildWorkbook(filtered, summary);
 				res.writeHead(200, {
 					'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 					'Content-Disposition': `attachment; filename="${base}.xlsx"`,

@@ -4,6 +4,7 @@
 **상품 상세 설명 DOM**(상세페이지의 `section.GoodsDetailTabs_product-info-panel__*`)까지 이어서 수집해
 JSON으로 저장한다. 이미지는 전부 로컬(`oliveyoung_ranking_doms/images/`)에 내려받아 두고,
 로컬 대시보드에서 열어보고 **엑셀(xlsx) / CSV**로 내보낸다.
+찜한 상품만 협력사에 보여줄 때는 `partner-site/` 정적 페이지를 쓴다.
 
 ## 다른 PC에 전달하기 (패키징)
 
@@ -65,6 +66,7 @@ npm install          # 최초 1회 (playwright)
 npm run dashboard      # 대시보드 http://localhost:3000
 npm run collect        # 목록 수집 (CLI)
 npm run collect:detail # 상세페이지 수집 (CLI) — 목록 결과가 있어야 돌아감
+npm run export:partner # 찜 상품을 partner-site/data/catalog.js 로 내보냄
 ```
 
 Windows 명령 프롬프트:
@@ -125,6 +127,60 @@ npm --prefix event-page/goods_summary/scraper run dashboard
   - 목록 API 응답에서는 `detailHtml` 을 뺀다(상품당 수십 KB). 필요할 때 `/api/detail` 로 따로 받는다
 
 > 포트 변경: `PORT=3100 npm run dashboard`
+
+## 협력사 카탈로그 (`partner-site/`)
+
+대시보드에서 **찜**해 둔 상품만 협력사 브라우저로 보여주는 정적 사이트다.
+서버가 없고, `partner-site/` 폴더를 그대로 올리면 된다. `index.html` 을 파일로 열어도 된다.
+
+화면은 세 개다. 주소는 해시로 나뉜다.
+
+| 해시 | 화면 |
+| --- | --- |
+| `#/login` | 로그인 |
+| `#/catalog` | 찜 상품 목록 |
+| `#/product/<goodsNo>` | 상세 |
+
+- 화면 언어는 **한국어 / 인도네시아어**만. 오른쪽 위 버튼으로 바꾼다.
+  상품명, 브랜드, 정보고시 본문은 수집된 한국어 그대로다.
+- 로그인은 `partner-site/js/app.js` 의 계정 상수만 비교한다. 서버 검증은 없다.
+  아이디 `partner`, 비밀번호 `woosul2026`. 로그인 화면에는 적혀 있지 않으므로 협력사에는 따로 전달한다.
+  탭을 닫으면 다시 로그인한다.
+- 로그인하지 않고 `#/catalog` 나 상세 주소로 들어가면 로그인 화면이 나온다.
+
+목록에서는 상품명·브랜드·상품코드 검색, 카테고리, 정렬(담은 순서 / 순위 / 가격 / 할인율 / 상품명)이 된다.
+처음 카드 순서는 `oliveyoung_ranking_doms/favorites.json` 순서다.
+상세에는 상품코드, 가격, 배지, 카테고리별 순위, 정보고시가 나온다.
+상세 설명 이미지는 왼쪽 칸 너비에 맞춰 전부 이어서 보인다.
+
+### 데이터 갱신
+
+찜을 바꾸면 사이트가 자동으로 따라가지 않는다. 내보내기를 다시 실행한다.
+
+```bash
+cd scraper
+npm run export:partner
+```
+
+리포지토리 루트에서:
+
+```bash
+npm --prefix scraper run export:partner
+```
+
+`favorites.json` 과 `oliveyoung_ranking_items.json` 을 읽어
+`partner-site/data/catalog.js` 와 `partner-site/data/catalog.xlsx` 를 덮어쓴다.
+대시보드의 **찜 Excel** 도 같은 열(상세이미지, 정보고시 포함)로 내려받는다.
+협력사 화면의 [Excel 가져오기]로 그 파일을 불러오면 그 내용이 목록과 상세가 된다.
+같은 상품이 여러 카테고리에 있으면 카드는 1장이고, 순위는 카테고리별로 모두 남긴다.
+찜에만 있고 수집 JSON 에 없는 코드는 카드를 만들지 않는다.
+
+이미지는 올리브영 CDN 주소(`imageUrl`, `detailImages[].url`)를 쓴다.
+`detailHtml` 과 `images/` 로컬 파일은 넣지 않는다. 상세 HTML 의 그림 경로가 이미 로컬로 바뀌어 있어
+협력사 PC 에서는 깨지기 때문이다. 협력사 화면의 그림은 인터넷이 되어야 보인다.
+
+협력사에 보낼 때는 `partner-site/` 폴더 전체를 정적 호스팅에 올리거나 폴더째 전달한다.
+비밀번호는 JS 안에 있으므로, 폴더를 받은 사람은 파일을 열어 계정을 볼 수 있다.
 
 ## 이미지 로컬 저장
 
