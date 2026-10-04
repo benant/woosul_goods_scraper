@@ -29,6 +29,7 @@ const BACKOFF = [30000, 60000, 120000, 240000];
 // 상세 설명 = 상품 본체 이미지 영역(.iPrdViewimg) 만 담는다.
 // 그 밖의 공지배너/협회 안내박스/관련상품 스와이퍼는 수집하지 않는다.
 const DETAIL_ROOT_SELECTOR = '.iPrdViewimg';
+const DETAIL_IMAGE_BASE = 'https://image.oliveyoung.co.kr/cfimages/cf-goods/uploads/images/details/';
 
 // 스켈레톤(로딩 Placeholder)이 빠지고 실제 본문이 그려졌는지 확인.
 // 바로 읽으면 GoodsDetailTabs_skeleton 만 담긴 껍데기가 저장된다.
@@ -89,6 +90,40 @@ function rewriteDetailHtml(imageMap) {
 	return '<!-- 상품상세설명 DOM -->\n' + clone.outerHTML;
 }
 
+// 설명 API 의 HTML(descriptionTypeCode 10)에서 이미지 주소를 뽑는다.
+// 이 유형은 화면에 .iPrdViewimg 가 없다.
+// 타입 20 은 goodsDetailImages 경로만 주고, 화면의 .iPrdViewimg 가 안 뜨는 상품이 있다.
+function htmlFromDetailImages(description) {
+	const list = description && Array.isArray(description.goodsDetailImages) ? description.goodsDetailImages : [];
+	const used = list
+		.filter((img) => img && img.use_yn === 'Y' && img.path)
+		.sort((a, b) => (Number(a.sort_seq) || 0) - (Number(b.sort_seq) || 0));
+	if (!used.length) return '';
+	const imgs = used.map((img) => {
+		const url = DETAIL_IMAGE_BASE + String(img.path).replace(/^\//, '');
+		const alt = String(img.alt_text || '').replace(/"/g, '&quot;');
+		return `<img src="${url}" alt="${alt}">`;
+	});
+	return `<div class="iPrdViewimg">${imgs.join('')}</div>`;
+}
+
+function urlsFromHtml(html) {
+	const urls = [];
+	const re = /(?:src|data-src)=["'](https?:\/\/[^"']+)["']/gi;
+	let match;
+	while ((match = re.exec(html))) {
+		if (!urls.includes(match[1])) urls.push(match[1]);
+	}
+	return urls;
+}
+
+// 상세 설명 API. 페이지 컨텍스트의 상대 경로로만 호출한다.
+async function readDescription(goodsNo) {
+	const res = await fetch(`/goods/api/v1/description?goodsNumber=${encodeURIComponent(goodsNo)}`);
+	const json = await res.json();
+	return json && json.data ? json.data : null;
+}
+
 /** 상품 하나의 상세 정보 수집. 실패해도 예외를 던지지 않고 detailError 로 담는다. */
 async function fetchDetail(context, target, { images = true, article = true, articleOnly = false } = {}) {
 	const page = await context.newPage();
@@ -96,6 +131,55 @@ async function fetchDetail(context, target, { images = true, article = true, art
 		await page.goto(target.detailUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await passChallenge(page);
 		assertNotBlocked(await page.title());
+
+		// HTML 로 내려오는 상세(타입 10)는 .iPrdViewimg 가 생기지 않는다.
+		// 같은 페이지에서 설명 API 를 먼저 보고, 본문이 있으면 그 HTML 을 쓴다.
+		const description = await page.evaluate(readDescription, target.goodsNo).catch(() => null);
+		let htmlFromApi = description && typeof description.descriptionContents === 'string'
+			? description.descriptionContents.trim()
+			: '';
+		if (!htmlFromApi && !articleOnly) {
+			try {
+				await page.waitForSelector(DETAIL_ROOT_SELECTOR, { timeout: 30000 });
+			} catch (err) {
+				htmlFromApi = htmlFromDetailImages(description);
+				if (!htmlFromApi) throw err;
+			}
+		}
+		if (htmlFromApi && !articleOnly) {
+			const articleInfo = article ? await fetchArticle(page, target.goodsNo) : { article: null, articleError: null };
+			const urls = urlsFromHtml(htmlFromApi);
+			if (!images) {
+				return {
+					detailHtml: htmlFromApi,
+					detailImages: urls.map((url) => ({ url, path: null })),
+					detailImageCount: 0,
+					detailCollectedAt: new Date().toISOString(),
+					detailError: null,
+					article: articleInfo.article,
+					articleError: articleInfo.articleError,
+					articleCollectedAt: articleInfo.article ? new Date().toISOString() : null
+				};
+			}
+			const entries = urls.map((url, i) => ({
+				url,
+				relNoExt: relImagePath(target.key, `${target.key}_d${i + 1}`)
+			}));
+			const map = await saveImages(entries);
+			let html = htmlFromApi;
+			for (const [url, rel] of map) html = html.split(url).join(rel);
+			return {
+				detailHtml: html,
+				detailImages: [...map].map(([url, rel]) => ({ url, path: rel })),
+				detailImageCount: map.size,
+				detailCollectedAt: new Date().toISOString(),
+				detailError: null,
+				article: articleInfo.article,
+				articleError: articleInfo.articleError,
+				articleCollectedAt: articleInfo.article ? new Date().toISOString() : null
+			};
+		}
+
 		await page.waitForSelector(DETAIL_ROOT_SELECTOR, { timeout: 30000 });
 
 		// ---- 고시 전용 모드: 정보고시만 가져온다. 이미지 저장도 안 하므로 빠르다.
@@ -132,8 +216,21 @@ async function fetchDetail(context, target, { images = true, article = true, art
 			};
 		}
 
-		// 이미지 없이 HTML 만 가져오려면 치환 단계 아예 생략한다
-		if (!images || !spec.urls.length) {
+		// 이미지 파일은 받지 않는다. 주소만 남겨 협력사 화면이 원본 URL 로 그리게 한다.
+		if (!images) {
+			return {
+				detailHtml: spec.html,
+				detailImages: spec.urls.map((url) => ({ url, path: null })),
+				detailImageCount: 0,
+				detailCollectedAt: new Date().toISOString(),
+				detailError: null,
+				article: articleInfo.article,
+				articleError: articleInfo.articleError,
+				articleCollectedAt: articleInfo.article ? new Date().toISOString() : null
+			};
+		}
+
+		if (!spec.urls.length) {
 			return {
 				detailHtml: spec.html,
 				detailImages: [],
@@ -177,7 +274,7 @@ const itemKey = (it) => it.goodsNo || it.itemNo || it.detailUrl;
  * (payload 는 in-place 로 수정된다)
  * @param {object} payload oliveyoung_ranking_items.json 구조
  * @param {{headed?:boolean, delay?:number, images?:boolean, limit?:number,
- *          goodsNo?:string, force?:boolean, onProgress?:(e:object)=>void,
+ *          goodsNo?:string, goodsNos?:string[], force?:boolean, onProgress?:(e:object)=>void,
  *          signal?:AbortSignal, saveEvery?:number, onCheckpoint?:(e:object)=>void}} opts
  */
 export async function collectDetails(payload, opts = {}) {
@@ -188,6 +285,7 @@ export async function collectDetails(payload, opts = {}) {
 		images = true,
 		limit = 0,
 		goodsNo = '',
+		goodsNos = null,
 		force = false,
 		retries = 3,
 		onProgress = () => {},
@@ -200,17 +298,19 @@ export async function collectDetails(payload, opts = {}) {
 	} = opts;
 
 	// 같은 상품이 여러 카테고리에 올라와도 상세/고시는 1번만 수집한다
+	const allow = goodsNos ? new Set(goodsNos) : null;
 	const targets = new Map();
 	for (const c of payload.categories || []) {
 		for (const it of c.items || []) {
 			if (!it.detailUrl) continue;
 			if (goodsNo && it.goodsNo !== goodsNo) continue;
+			if (allow && !allow.has(it.goodsNo)) continue;
 			if (articleOnly) {
 				// 고시 전용: 정보고시가 이미 있는 상품은 건너뛴다. 단 force(재수집)면 다시 받는다 —
 				// 모달의 [고시 수집] 버튼이 특정 상품을 다시 수집할 수 있어야 하기 때문.
 				if (it.article && !force) continue;
-			} else if (!force && it.detailHtml) {
-				// 일반 모드: 이미 상세가 있고 다시 받으라는 지시가 없으면 건너뛴다
+			} else if (!force && it.detailHtml && it.article) {
+				// 상세와 고시가 둘 다 있으면 건너뛴다. 한쪽만 있으면 페이지를 다시 연다.
 				continue;
 			}
 			const key = itemKey(it);

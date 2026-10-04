@@ -12,13 +12,14 @@
 //   npm run collect:detail -- --goodsNo A000000263019
 //   npm run collect:detail -- --headed         # 브라우저를 띄워서 (차단될 때)
 //   npm run collect:detail -- --delay 8000     # 요청 간 대기 ms (기본 5000, 막히면 늘릴 것)
-//   npm run collect:detail -- --no-images      # HTML 만 받고 이미지는 받지 않음
+//   npm run collect:detail -- --no-images      # HTML 과 고시만 받고 이미지 파일은 받지 않음 (주소는 남김)
+//   npm run collect:detail -- --favs           # favorites.json 에 있는 상품만
 //   npm run collect:detail -- --force          # 이미 있는 것도 다시 받기
 
 import fs from 'fs';
 import { collectDetails } from './lib/detail.mjs';
 import { saveItems } from './lib/collector.mjs';
-import { ITEMS_JSON } from './lib/paths.mjs';
+import { FAV_JSON, ITEMS_JSON } from './lib/paths.mjs';
 
 const argv = process.argv.slice(2);
 const hasFlag = (name) => argv.includes(name);
@@ -35,6 +36,7 @@ const opts = {
 	articleOnly: hasFlag('--article-only'),
 	limit: Number(getOpt('--limit', 0)) || 0,
 	goodsNo: getOpt('--goodsNo', ''),
+	goodsNos: hasFlag('--favs') ? JSON.parse(fs.readFileSync(FAV_JSON, 'utf8')) : null,
 	delay: Number(getOpt('--delay', 5000))
 };
 
@@ -83,7 +85,9 @@ const result = await collectDetails(payload, {
 			process.stdout.write(`[재시도] ${sec.padStart(5)}s  ${e.goodsNo} — ${e.error}\n`);
 			return;
 		}
-		const tail = e.status === 'ok' ? (opts.articleOnly ? '고시 저장' : `이미지 ${e.imageCount}개`) : `실패 - ${e.error}`;
+		const tail = e.status === 'ok'
+			? (opts.articleOnly ? '고시 저장' : opts.images ? `이미지 ${e.imageCount}개` : '상세+고시 (이미지 파일 없음)')
+			: `실패 - ${e.error}`;
 		process.stdout.write(`[${String(e.index).padStart(4)}/${e.total}] ${sec.padStart(5)}s  ${e.goodsNo || e.name} ... ${tail}\n`);
 	}
 });

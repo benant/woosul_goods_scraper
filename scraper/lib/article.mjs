@@ -65,6 +65,16 @@ function extractOptionsFromFlight() {
 	}
 }
 
+// 일부 상품은 화면 flight 데이터에 옵션이 없다. 옵션 API 가 표준코드를 준다.
+async function optionRequest(goodsNo) {
+	const res = await fetch(`/goods/api/v1/option?goodsNumber=${encodeURIComponent(goodsNo)}`);
+	const json = await res.json();
+	const list = json?.data?.optionList || [];
+	return list
+		.filter((o) => /^\d{6,}$/.test(String(o.standardCode || '')))
+		.map((o) => ({ standardCode: String(o.standardCode), optionName: String(o.optionName || '').trim() }));
+}
+
 /** article API 호출. 반드시 evaluate 안(페이지 컨텍스트)에서 상대경로로 불러야 403 을 피한다. */
 async function articleRequest(payload) {
 	const res = await fetch('/goods/api/v1/article', {
@@ -107,7 +117,8 @@ function flattenArticles(articleInfoList) {
  */
 export async function fetchArticle(page, goodsNo) {
 	try {
-		const options = await page.evaluate(extractOptionsFromFlight).catch(() => []);
+		let options = await page.evaluate(extractOptionsFromFlight).catch(() => []);
+		if (!options.length) options = await page.evaluate(optionRequest, goodsNo).catch(() => []);
 		if (!options.length) return { article: null, articleError: '옵션(표준코드)을 찾지 못함' };
 
 		const j = await page.evaluate(articleRequest, {
