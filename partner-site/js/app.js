@@ -53,12 +53,7 @@ const DICT = {
 		categoryPath: '상품 카테고리',
 		article: '정보고시',
 		noArticle: '등록된 정보고시가 없습니다.',
-		importExcel: 'Excel 가져오기',
-		importFail: '엑셀을 읽지 못했습니다.',
-		importNoCode: '엑셀에 상품코드 열이 없습니다.',
-		importEmpty: '가져올 상품이 없습니다.',
-		clearImport: '기본 데이터',
-		importedNote: '엑셀에서 불러온 목록입니다.',
+		downloadExcel: 'Excel 다운로드',
 		imageAlt: '상품 이미지',
 		imageFail: '이미지를 표시할 수 없습니다',
 		logout: '로그아웃',
@@ -116,12 +111,7 @@ const DICT = {
 		categoryPath: 'Kategori produk',
 		article: 'Informasi produk',
 		noArticle: 'Informasi produk belum tersedia.',
-		importExcel: 'Impor Excel',
-		importFail: 'Gagal membaca berkas Excel.',
-		importNoCode: 'Kolom kode produk tidak ada.',
-		importEmpty: 'Tidak ada produk untuk diimpor.',
-		clearImport: 'Data awal',
-		importedNote: 'Daftar ini diimpor dari Excel.',
+		downloadExcel: 'Unduh Excel',
 		imageAlt: 'gambar produk',
 		imageFail: 'Gambar tidak dapat dimuat',
 		logout: 'Keluar',
@@ -155,22 +145,8 @@ const ARTICLE_RULES = [
 	['소비자상담', 'Telepon layanan konsumen']
 ];
 
-const IMPORT_KEY = 'woosul_partner_xlsx';
 const bundledCatalog = window.PARTNER_CATALOG || { exportedAt: null, products: [], missing: [] };
-
-function readSavedCatalog() {
-	try {
-		const saved = localStorage.getItem(IMPORT_KEY);
-		if (!saved) return null;
-		const data = JSON.parse(saved);
-		if (!data || !Array.isArray(data.products)) return null;
-		return data;
-	} catch {
-		return null;
-	}
-}
-
-let catalog = readSavedCatalog() || bundledCatalog;
+let catalog = bundledCatalog;
 const state = {
 	q: '',
 	pickedBrands: new Set(),
@@ -180,9 +156,7 @@ const state = {
 	sort: 'saved',
 	order: 'asc',
 	loginId: '',
-	showLoginError: false,
-	imported: catalog !== bundledCatalog,
-	importError: ''
+	showLoginError: false
 };
 let pendingHash = '';
 
@@ -334,15 +308,11 @@ function headerHtml() {
 			<span class="brand-name">${esc(t('appName'))}</span>
 		</a>
 		<div class="header-actions">
-			<label class="btn-ghost filebtn">${esc(t('importExcel'))}
-				<input id="xlsxFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-			</label>
-			${state.imported ? `<button type="button" class="btn-ghost" data-action="clear-import">${esc(t('clearImport'))}</button>` : ''}
+			<a class="btn-ghost" href="data/catalog.xlsx" download="catalog.xlsx">${esc(t('downloadExcel'))}</a>
 			${langSwitch()}
 			<button type="button" class="btn-ghost" data-action="logout">${esc(t('logout'))}</button>
 		</div>
-	</header>
-	${state.importError ? `<p class="error" role="alert">${esc(state.importError)}</p>` : ''}`;
+	</header>`;
 }
 
 function placeholderHtml(extra) {
@@ -513,7 +483,6 @@ function renderCatalog() {
 					<span>${esc(t('priceNote'))}</span>
 				</p>
 				${missing}
-				${state.imported ? `<p class="note">${esc(t('importedNote'))}</p>` : ''}
 			</section>
 			<form id="filters" class="filters" role="search">
 				<label class="field">${esc(t('search'))}
@@ -734,13 +703,6 @@ document.addEventListener('click', (event) => {
 		paintGrid();
 		return;
 	}
-	if (button.dataset.action === 'clear-import') {
-		localStorage.removeItem(IMPORT_KEY);
-		catalog = bundledCatalog;
-		state.imported = false;
-		state.importError = '';
-		render();
-	}
 });
 
 document.addEventListener('submit', (event) => {
@@ -763,34 +725,7 @@ document.addEventListener('input', (event) => {
 	paintGrid();
 });
 
-document.addEventListener('change', async (event) => {
-	if (event.target.id === 'xlsxFile') {
-		const file = event.target.files && event.target.files[0];
-		if (!file) return;
-		try {
-			const next = await window.importPartnerXlsx(await file.arrayBuffer());
-			if (!next.products.length) {
-				const error = new Error('empty');
-				error.code = 'empty';
-				throw error;
-			}
-			catalog = next;
-			state.imported = true;
-			state.importError = '';
-			try {
-				localStorage.setItem(IMPORT_KEY, JSON.stringify(catalog));
-			} catch {
-				state.importError = t('importFail');
-			}
-			if (location.hash.startsWith('#/product/')) location.hash = '#/catalog';
-			else render();
-		} catch (error) {
-			const code = error && error.code;
-			state.importError = code === 'no-code' ? t('importNoCode') : code === 'empty' ? t('importEmpty') : t('importFail');
-			render();
-		}
-		return;
-	}
+document.addEventListener('change', (event) => {
 	if (event.target.matches('#brandList input[type="checkbox"]')) {
 		const name = event.target.value;
 		if (event.target.checked) state.pickedBrands.add(name);

@@ -554,19 +554,6 @@ input::placeholder { color: #475569; opacity: 1; }
 	border: 0;
 }
 
-.filebtn { position: relative; }
-
-.filebtn input {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0 0 0 0);
-	border: 0;
-}
-
 .ph {
 	display: grid;
 	place-items: center;
