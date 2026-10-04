@@ -19,11 +19,18 @@ const DICT = {
 		errorLinkPw: '비밀번호를 다시 입력',
 		catalogKicker: 'Selected ranking',
 		catalogTitle: '선정 상품',
-		catalogLead: '좋아요로 담아 둔 랭킹 상품만 모았습니다.',
-		exported: '내보낸 시각',
+		exported: '정리일',
 		priceNote: '가격은 대한민국 원(KRW)입니다.',
 		search: '검색',
 		searchPlaceholder: '상품명, 브랜드, 상품코드',
+		brand: '브랜드',
+		allBrands: '전체 브랜드',
+		brandSearch: '브랜드 검색',
+		brandSelectShown: '검색결과 전체 선택',
+		brandClear: '선택 해제',
+		brandEmpty: '일치하는 브랜드가 없습니다',
+		brandChosen: '브랜드 {n}개 선택',
+		brandCount: '{shown}개 중 {picked}개 선택',
 		category: '카테고리',
 		allCategories: '전체 카테고리',
 		sort: '정렬',
@@ -75,11 +82,18 @@ const DICT = {
 		errorLinkPw: 'Isi ulang kata sandi',
 		catalogKicker: 'Selected ranking',
 		catalogTitle: 'Produk pilihan',
-		catalogLead: 'Hanya produk peringkat yang sudah ditandai sebagai favorit.',
-		exported: 'Diekspor',
+		exported: 'Tanggal susun',
 		priceNote: 'Harga dalam won Korea (KRW).',
 		search: 'Cari',
 		searchPlaceholder: 'Nama, merek, atau kode',
+		brand: 'Merek',
+		allBrands: 'Semua merek',
+		brandSearch: 'Cari merek',
+		brandSelectShown: 'Pilih hasil pencarian',
+		brandClear: 'Hapus pilihan',
+		brandEmpty: 'Tidak ada merek yang cocok',
+		brandChosen: '{n} merek dipilih',
+		brandCount: '{picked} dari {shown} dipilih',
 		category: 'Kategori',
 		allCategories: 'Semua kategori',
 		sort: 'Urutkan',
@@ -159,6 +173,9 @@ function readSavedCatalog() {
 let catalog = readSavedCatalog() || bundledCatalog;
 const state = {
 	q: '',
+	pickedBrands: new Set(),
+	brandQuery: '',
+	brandOpen: false,
 	category: '',
 	sort: 'saved',
 	order: 'asc',
@@ -213,8 +230,7 @@ function formatDate(iso) {
 	const date = new Date(iso);
 	if (Number.isNaN(date.getTime())) return '';
 	return new Intl.DateTimeFormat(lang() === 'id' ? 'id-ID' : 'ko-KR', {
-		dateStyle: 'medium',
-		timeStyle: 'short'
+		dateStyle: 'medium'
 	}).format(date);
 }
 
@@ -252,9 +268,19 @@ function categories() {
 	return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
 }
 
+function brands() {
+	const set = new Set();
+	for (const product of catalog.products || []) {
+		const name = String(product.brand || '').trim();
+		if (name) set.add(name);
+	}
+	return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
+}
+
 function filteredProducts() {
 	const q = state.q.trim().toLowerCase();
 	const rows = (catalog.products || []).filter((product) => {
+		if (state.pickedBrands.size && !state.pickedBrands.has(String(product.brand || '').trim())) return false;
 		if (state.category && !(product.ranks || []).some((row) => row.categoryName === state.category)) return false;
 		if (!q) return true;
 		const hay = [product.name, product.brand, product.goodsNo, ...(product.ranks || []).map((row) => row.categoryName)]
@@ -406,7 +432,68 @@ function gridHtml() {
 	return rows.map(cardHtml).join('');
 }
 
+function fill(key, vars) {
+	return Object.entries(vars).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), t(key));
+}
+
+function visibleBrands() {
+	const kw = state.brandQuery.trim().toLowerCase();
+	const all = brands();
+	return kw ? all.filter((name) => name.toLowerCase().includes(kw)) : all;
+}
+
+function brandListHtml() {
+	const shown = visibleBrands();
+	if (!shown.length) return `<li class="ms-empty">${esc(t('brandEmpty'))}</li>`;
+	return shown
+		.map(
+			(name) =>
+				`<li><label><input type="checkbox" value="${esc(name)}"${
+					state.pickedBrands.has(name) ? ' checked' : ''
+				} /> ${esc(name)}</label></li>`
+		)
+		.join('');
+}
+
+function syncBrandChrome() {
+	const toggle = document.getElementById('brandToggle');
+	const count = document.getElementById('brandCount');
+	if (toggle) {
+		const n = state.pickedBrands.size;
+		toggle.textContent = n ? fill('brandChosen', { n }) : t('allBrands');
+		toggle.classList.toggle('on', n > 0);
+		toggle.setAttribute('aria-expanded', String(state.brandOpen));
+	}
+	if (count) {
+		count.textContent = fill('brandCount', { shown: visibleBrands().length, picked: state.pickedBrands.size });
+	}
+}
+
+function paintBrandList() {
+	const list = document.getElementById('brandList');
+	if (!list) return;
+	const scroll = list.scrollTop;
+	list.innerHTML = brandListHtml();
+	list.scrollTop = scroll;
+	syncBrandChrome();
+}
+
+function setBrandOpen(open) {
+	state.brandOpen = open;
+	const panel = document.getElementById('brandPanel');
+	if (panel) panel.hidden = !open;
+	syncBrandChrome();
+	if (open) {
+		const search = document.getElementById('brandSearch');
+		if (search) search.focus();
+	}
+}
+
 function renderCatalog() {
+	const brandNames = brands();
+	for (const name of [...state.pickedBrands]) {
+		if (!brandNames.includes(name)) state.pickedBrands.delete(name);
+	}
 	const options = categories()
 		.map((name) => `<option value="${esc(name)}"${name === state.category ? ' selected' : ''}>${esc(name)}</option>`)
 		.join('');
@@ -421,7 +508,6 @@ function renderCatalog() {
 			<section class="intro">
 				<p class="eyebrow">${esc(t('catalogKicker'))}</p>
 				<h1 class="display-ui">${esc(t('catalogTitle'))}</h1>
-				<p class="lead">${esc(t('catalogLead'))}</p>
 				<p class="meta">
 					<span>${esc(when ? `${t('exported')} ${when}` : '')}</span>
 					<span>${esc(t('priceNote'))}</span>
@@ -433,6 +519,21 @@ function renderCatalog() {
 				<label class="field">${esc(t('search'))}
 					<input id="q" type="search" placeholder="${esc(t('searchPlaceholder'))}" value="${esc(state.q)}" />
 				</label>
+				<div class="field">
+					<span>${esc(t('brand'))}</span>
+					<div class="multisel" id="brandSel">
+						<button type="button" class="ms-btn${state.pickedBrands.size ? ' on' : ''}" id="brandToggle" data-action="brand-toggle" aria-expanded="${state.brandOpen ? 'true' : 'false'}" aria-haspopup="true">${esc(state.pickedBrands.size ? fill('brandChosen', { n: state.pickedBrands.size }) : t('allBrands'))}</button>
+						<div class="ms-panel" id="brandPanel"${state.brandOpen ? '' : ' hidden'}>
+							<input type="search" id="brandSearch" placeholder="${esc(t('brandSearch'))}" autocomplete="off" value="${esc(state.brandQuery)}" />
+							<div class="ms-tools">
+								<button type="button" class="linkbtn" data-action="brand-all">${esc(t('brandSelectShown'))}</button>
+								<button type="button" class="linkbtn" data-action="brand-none">${esc(t('brandClear'))}</button>
+								<span class="hint" id="brandCount">${esc(fill('brandCount', { shown: visibleBrands().length, picked: state.pickedBrands.size }))}</span>
+							</div>
+							<ul class="ms-list" id="brandList">${brandListHtml()}</ul>
+						</div>
+					</div>
+				</div>
 				<label class="field">${esc(t('category'))}
 					<select id="cat">
 						<option value="">${esc(t('allCategories'))}</option>
@@ -591,6 +692,10 @@ function submitLogin(event) {
 }
 
 document.addEventListener('click', (event) => {
+	const brandSel = document.getElementById('brandSel');
+	const brandPanel = document.getElementById('brandPanel');
+	if (brandPanel && !brandPanel.hidden && brandSel && !brandSel.contains(event.target)) setBrandOpen(false);
+
 	const button = event.target.closest('[data-action]');
 	if (!button || !document.getElementById('app').contains(button)) return;
 	if (button.dataset.action === 'focus-id' || button.dataset.action === 'focus-pw') {
@@ -608,6 +713,25 @@ document.addEventListener('click', (event) => {
 		sessionStorage.removeItem(AUTH_KEY);
 		state.showLoginError = false;
 		location.hash = '#/login';
+		return;
+	}
+	if (button.dataset.action === 'brand-toggle') {
+		event.preventDefault();
+		setBrandOpen(!state.brandOpen);
+		return;
+	}
+	if (button.dataset.action === 'brand-all') {
+		event.preventDefault();
+		for (const name of visibleBrands()) state.pickedBrands.add(name);
+		paintBrandList();
+		paintGrid();
+		return;
+	}
+	if (button.dataset.action === 'brand-none') {
+		event.preventDefault();
+		state.pickedBrands.clear();
+		paintBrandList();
+		paintGrid();
 		return;
 	}
 	if (button.dataset.action === 'clear-import') {
@@ -629,6 +753,11 @@ document.addEventListener('submit', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+	if (event.target.id === 'brandSearch') {
+		state.brandQuery = event.target.value;
+		paintBrandList();
+		return;
+	}
 	if (event.target.id !== 'q') return;
 	state.q = event.target.value;
 	paintGrid();
@@ -662,6 +791,14 @@ document.addEventListener('change', async (event) => {
 		}
 		return;
 	}
+	if (event.target.matches('#brandList input[type="checkbox"]')) {
+		const name = event.target.value;
+		if (event.target.checked) state.pickedBrands.add(name);
+		else state.pickedBrands.delete(name);
+		syncBrandChrome();
+		paintGrid();
+		return;
+	}
 	if (!['cat', 'sort', 'order'].includes(event.target.id)) return;
 	readFilters();
 	paintGrid();
@@ -677,6 +814,10 @@ document.addEventListener(
 	},
 	true
 );
+
+document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && state.brandOpen) setBrandOpen(false);
+});
 
 window.addEventListener('hashchange', () => render());
 
