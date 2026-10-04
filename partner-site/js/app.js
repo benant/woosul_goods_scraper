@@ -7,7 +7,7 @@ const DICT = {
 	ko: {
 		appName: '협력사 카탈로그',
 		loginHero: '선정 상품',
-		loginLead: '내부에서 골라 둔 올리브영 랭킹 상품입니다. 협력사 공유용 화면입니다.',
+		loginLead: '올리브영에서 판매되고 있는 브랜드와 상품 중 내부에서 선정한 리스트입니다. 협력사 공유용 화면입니다.',
 		loginTitle: '로그인',
 		loginHint: '전달받은 계정으로 들어갑니다.',
 		userId: '아이디',
@@ -65,7 +65,7 @@ const DICT = {
 	id: {
 		appName: 'Katalog Mitra',
 		loginHero: 'Produk pilihan',
-		loginLead: 'Produk peringkat Olive Young yang sudah dipilih untuk dibagikan kepada mitra.',
+		loginLead: 'Daftar merek dan produk yang dijual di Olive Young, dipilih secara internal. Layar ini untuk dibagikan kepada mitra.',
 		loginTitle: 'Masuk',
 		loginHint: 'Gunakan akun yang sudah diberikan.',
 		userId: 'ID pengguna',
