@@ -122,15 +122,6 @@ const DICT = {
 	}
 };
 
-const FLAGS = {
-	세일: { ko: '세일', id: 'Obral' },
-	쿠폰: { ko: '쿠폰', id: 'Kupon' },
-	오늘드림: { ko: '오늘드림', id: 'Kirim hari ini' },
-	증정: { ko: '증정', id: 'Hadiah' },
-	'1+1': { ko: '1+1', id: '1+1' },
-	무배: { ko: '무배', id: 'Gratis ongkir' }
-};
-
 const ARTICLE_RULES = [
 	['용량', 'Isi atau berat'],
 	['주요 사양', 'Spesifikasi utama'],
@@ -206,12 +197,6 @@ function formatDate(iso) {
 	return new Intl.DateTimeFormat(lang() === 'id' ? 'id-ID' : 'ko-KR', {
 		dateStyle: 'medium'
 	}).format(date);
-}
-
-function flagLabel(flag) {
-	const row = FLAGS[flag];
-	if (!row) return flag;
-	return row[lang()] || flag;
 }
 
 function articleLabel(title) {
@@ -335,9 +320,10 @@ function priceHtml(product) {
 	</p>`;
 }
 
-function flagsHtml(flags) {
-	if (!flags || !flags.length) return '';
-	return `<ul class="flags">${flags.map((flag) => `<li class="pill">${esc(flagLabel(flag))}</li>`).join('')}</ul>`;
+function brandBadge(brand) {
+	const name = String(brand || '').trim();
+	if (!name) return '';
+	return `<ul class="flags"><li class="pill">${esc(name)}</li></ul>`;
 }
 
 function renderLogin() {
@@ -388,10 +374,10 @@ function cardHtml(product) {
 			${discount}
 		</div>
 		<div class="card-body">
-			<p class="brand-line">${esc(product.brand || '')}${best ? ` · ${esc(best.categoryName)}` : ''}</p>
+			${best ? `<p class="brand-line">${esc(best.categoryName)}</p>` : ''}
 			<h2 class="pname">${esc(product.name)}</h2>
 			${priceHtml(product)}
-			${flagsHtml(product.flags)}
+			${brandBadge(product.brand)}
 		</div>
 	</a>`;
 }
@@ -560,7 +546,7 @@ function renderProduct(goodsNo) {
 		? photos
 				.map(
 					(url, index) =>
-						`<img src="${esc(url)}" alt="${esc(`${product.name} ${index + 1}`)}" loading="lazy" />`
+						`<img src="${esc(url)}" alt="${esc(`${product.name} ${index + 1}`)}" loading="${index === 0 ? 'eager' : 'lazy'}" />`
 				)
 				.join('')
 		: placeholderHtml('');
@@ -577,12 +563,11 @@ function renderProduct(goodsNo) {
 			<div class="detail-layout">
 				<div class="detail-photos">${photoHtml}</div>
 				<div class="detail-copy">
-					<p class="brand-line">${esc(product.brand || '')}</p>
+					${brandBadge(product.brand)}
 					<h1 class="pname">${esc(product.name)}</h1>
 					<p class="code">${esc(t('goodsNo'))} ${esc(product.goodsNo)}</p>
 					${priceHtml(product)}
 					${typeof product.discountRate === 'number' ? `<p class="code">${esc(t('sortDiscount'))} ${esc(String(product.discountRate))}%</p>` : ''}
-					${flagsHtml(product.flags)}
 					${ranks ? `<h2 class="subhead">${esc(t('ranks'))}</h2><ul class="ranks">${ranks}</ul>` : ''}
 					${product.categoryPath ? `<p class="path">${esc(t('categoryPath'))}: ${esc(product.categoryPath)}</p>` : ''}
 					<section class="article">
@@ -593,6 +578,44 @@ function renderProduct(goodsNo) {
 			</div>
 		</main>
 	</div>`;
+}
+
+let bootWatch = 0;
+
+function showBoot(mode) {
+	const boot = document.getElementById('boot');
+	if (!boot) return;
+	const title = boot.querySelector('p');
+	const sub = boot.querySelector('.sub');
+	if (mode === 'product') {
+		if (title) title.textContent = '상품 정보를 불러오는 중입니다';
+		if (sub) sub.textContent = 'Memuat produk…';
+	} else {
+		if (title) title.textContent = '상품 목록을 불러오는 중입니다';
+		if (sub) sub.textContent = 'Memuat katalog…';
+	}
+	boot.hidden = false;
+}
+
+function hideBoot() {
+	const boot = document.getElementById('boot');
+	if (boot) boot.hidden = true;
+}
+
+function settleDetailPhotos(app) {
+	const watch = bootWatch;
+	const hide = () => {
+		if (watch === bootWatch) hideBoot();
+	};
+	const first = app.querySelector('.detail-photos img');
+	window.scrollTo(0, 0);
+	if (!first || first.complete) {
+		hide();
+		return;
+	}
+	first.addEventListener('load', hide, { once: true });
+	first.addEventListener('error', hide, { once: true });
+	setTimeout(hide, 12000);
 }
 
 function render() {
@@ -608,9 +631,17 @@ function render() {
 		return;
 	}
 	const app = document.getElementById('app');
-	if (route.name === 'login') app.innerHTML = renderLogin();
-	else if (route.name === 'product') app.innerHTML = renderProduct(route.goodsNo);
-	else app.innerHTML = renderCatalog();
+	if (route.name === 'product') {
+		bootWatch += 1;
+		showBoot('product');
+		app.innerHTML = renderProduct(route.goodsNo);
+		settleDetailPhotos(app);
+	} else {
+		bootWatch += 1;
+		if (route.name === 'login') app.innerHTML = renderLogin();
+		else app.innerHTML = renderCatalog();
+		hideBoot();
+	}
 	document.title = `${t('appName')} · WOOSUL`;
 
 	if (state.showLoginError && route.name === 'login') {
